@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unificador de hojas Excel</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #1E3A89;
+      --primary-dark: #14285f;
+      --bg: #f3f6fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #64748b;
+      --border: #d9e2f1;
+      --success: #117a3a;
+      --danger: #b42318;
+      --warning-bg: #fff4e5;
+      --danger-bg: #fff1f0;
+      --success-bg: #eaf8ef;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #eaf0fb 0%, var(--bg) 45%, #ffffff 100%);
+      color: var(--text);
+    }
+
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 22px 26px;
+      box-shadow: 0 8px 24px rgba(30, 58, 137, 0.18);
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    header p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    main {
+      width: min(1360px, calc(100% - 48px));
+      margin: 28px auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr);
+      gap: 18px;
+    }
+
+    @media (max-width: 850px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 560px) {
+      header { padding: 18px 16px; }
+      main { width: min(100% - 20px, 1080px); margin: 18px auto; }
+      .card { padding: 16px; border-radius: 16px; }
+      .dropzone { min-height: 118px; padding: 22px 14px; }
+      .dropzone strong { font-size: 16px; }
+      .actions { flex-direction: column; align-items: stretch; }
+      button, .download-link { width: 100%; }
+    }
+
+    .card {
+      min-width: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      padding: 20px;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .dropzone {
+      width: 100%;
+      min-height: 132px;
+      border: 2px dashed #9ab0dd;
+      border-radius: 16px;
+      padding: 28px 22px;
+      background: #f8fbff;
+      text-align: center;
+      transition: 0.2s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--primary);
+      background: #eef4ff;
+    }
+
+    .dropzone strong {
+      display: block;
+      width: 100%;
+      font-size: 18px;
+      line-height: 1.35;
+      margin-bottom: 8px;
+    }
+
+    .dropzone span {
+      display: block;
+      width: 100%;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    input[type="file"] { display: none; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button, .download-link {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    button.primary, .download-link.primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    button.secondary, .download-link.secondary {
+      background: #e9eef9;
+      color: var(--primary-dark);
+    }
+
+    button:disabled, .download-link.disabled {
+      background: #e5e7eb;
+      color: #9ca3af;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .status {
+      margin-top: 14px;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.ok { display: block; background: var(--success-bg); color: var(--success); border: 1px solid #bde9c9; }
+    .status.err { display: block; background: var(--danger-bg); color: var(--danger); border: 1px solid #ffd0cc; }
+    .status.info { display: block; background: #eef4ff; color: var(--primary-dark); border: 1px solid #c7d6f6; }
+
+    .summary,
+    .row-control {
+      margin-top: 16px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: none;
+    }
+
+    .row-control {
+      background: #f8fbff;
+    }
+
+    .row-control-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .row-control-header strong {
+      color: var(--primary-dark);
+    }
+
+    .control-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #bde9c9;
+      white-space: nowrap;
+    }
+
+    .control-pill.error {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-color: #ffd0cc;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f3f6fb;
+      font-weight: 700;
+      color: #26324a;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .muted { color: var(--muted); }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .steps li {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 10px;
+      align-items: start;
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.45;
+      opacity: 0.42;
+      transform: translateY(0);
+      transition: opacity 0.25s ease, transform 0.25s ease, color 0.2s ease;
+    }
+
+    .steps li.is-active,
+    .steps li.is-done,
+    .steps li.is-error {
+      opacity: 1;
+      transform: translateY(-1px);
+    }
+
+    .badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #e9eef9;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      border: 1px solid #d7e0f3;
+      transition: 0.2s ease;
+    }
+
+    .steps li.is-active .badge {
+      background: #eef4ff;
+      color: var(--primary);
+      border-color: #9ab0dd;
+      box-shadow: 0 0 0 4px rgba(30, 58, 137, 0.08);
+    }
+
+    .steps li.is-done {
+      color: #102a1a;
+    }
+
+    .steps li.is-done .badge {
+      background: var(--success);
+      color: #ffffff;
+      border-color: var(--success);
+      box-shadow: 0 6px 14px rgba(17, 122, 58, 0.18);
+    }
+
+    .steps li.is-error .badge {
+      background: var(--danger);
+      color: #ffffff;
+      border-color: var(--danger);
+      box-shadow: 0 6px 14px rgba(180, 35, 24, 0.18);
+    }
+
+    .option-row {
+      margin-top: 16px;
+      display: flex;
+      gap: 12px 18px;
+      flex-wrap: wrap;
+      align-items: center;
+      color: #334155;
+      font-size: 14px;
+    }
+
+    .option-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: normal;
+      line-height: 1.35;
+    }
+
+    .option-row input[type="checkbox"] {
+      flex: 0 0 auto;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+
+    .modal {
+      width: min(650px, 100%);
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+
+    .modal header {
+      box-shadow: none;
+      padding: 16px 20px;
+      background: var(--danger);
+    }
+
+    .modal header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .modal-body {
+      padding: 18px 20px;
+      max-height: 60vh;
+      overflow: auto;
+      color: #334155;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .modal-body ul { margin: 10px 0 0 18px; padding: 0; }
+    .modal-footer { padding: 14px 20px 18px; text-align: right; }
+
+    .small-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Unificador de hojas Excel</h1>
+    <p>Valida columnas, une todas las hojas y permite descargar el resultado en XLSX o CSV.</p>
+  </header>
+
+  <main>
+    <section class="grid">
+      <div class="card">
+        <h2>1. Subir archivo</h2>
+        <label id="dropzone" class="dropzone" for="fileInput" tabindex="0">
+          <strong>Arrastrá un Excel acá o hacé clic para seleccionarlo</strong>
+          <span>Formatos aceptados: .xlsx y .xls</span>
+        </label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
+
+        <div class="option-row">
+          <label>
+            <input type="checkbox" id="ignoreEmptySheets" checked />
+            Ignorar hojas vacías
+          </label>
+          <label>
+            <input type="checkbox" id="trimHeaders" checked />
+            Comparar encabezados sin espacios al inicio/final
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="processBtn" type="button" class="primary" disabled>Procesar archivo</button>
+          <button id="resetBtn" type="button" class="secondary" disabled>Limpiar</button>
+        </div>
+
+        <div id="status" class="status info"></div>
+
+        <div id="rowControl" class="row-control">
+          <div class="row-control-header">
+            <strong>Control de filas y columnas</strong>
+            <span id="rowControlPill" class="control-pill">✓ Control OK</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Control</th>
+                <th>Original</th>
+                <th>Unificado</th>
+                <th>Diferencia</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="rowControlBody"></tbody>
+          </table>
+        </div>
+
+        <div id="summary" class="summary">
+          <table>
+            <thead>
+              <tr>
+                <th>Hoja</th>
+                <th>Columnas</th>
+                <th>Filas de datos</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="card">
+        <h2>Flujo de trabajo</h2>
+        <ul class="steps" id="processSteps">
+          <li id="stepRead"><span class="badge">1</span><span>Se leen todas las hojas del archivo Excel seleccionado.</span></li>
+          <li id="stepValidate"><span class="badge">2</span><span>Se valida que las hojas tengan la misma cantidad de columnas y los mismos nombres de encabezado.</span></li>
+          <li id="stepMerge"><span class="badge">3</span><span>Si la validación está OK, se genera una única tabla agregando como primera columna el nombre de la hoja original.</span></li>
+          <li id="stepDownload"><span class="badge">4</span><span>Se habilita la descarga en XLSX o CSV.</span></li>
+        </ul>
+
+        <div class="actions" style="margin-top: 20px;">
+          <button id="downloadXlsx" type="button" class="download-link primary disabled" disabled>Descargar XLSX</button>
+          <button id="downloadCsv" type="button" class="download-link primary disabled" disabled>Descargar CSV</button>
+        </div>
+        <p class="small-note">El archivo se procesa en el navegador. Esta versión no requiere servidor ni base de datos.</p>
+      </aside>
+    </section>
+  </main>
+
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <header><h3 id="modalTitle">Archivo con errores</h3></header>
+      <div id="modalBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="closeModalBtn" type="button" class="primary">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const processBtn = document.getElementById('processBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const statusBox = document.getElementById('status');
+    const summary = document.getElementById('summary');
+    const summaryBody = document.getElementById('summaryBody');
+    const rowControl = document.getElementById('rowControl');
+    const rowControlBody = document.getElementById('rowControlBody');
+    const rowControlPill = document.getElementById('rowControlPill');
+    const downloadXlsx = document.getElementById('downloadXlsx');
+    const downloadCsv = document.getElementById('downloadCsv');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const modalBody = document.getElementById('modalBody');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const ignoreEmptySheets = document.getElementById('ignoreEmptySheets');
+    const trimHeaders = document.getElementById('trimHeaders');
+    const stepIds = ['stepRead', 'stepValidate', 'stepMerge', 'stepDownload'];
+
+    let selectedFile = null;
+    let outputRows = [];
+    let outputHeaders = [];
+    let currentUrls = [];
+    let downloadInProgress = false;
+    let isProcessing = false;
+    let resultReady = false;
+    let completedDownloads = 0;
+
+    function resetSteps() {
+      stepIds.forEach((id, index) => {
+        const step = document.getElementById(id);
+        const badge = step.querySelector('.badge');
+        step.classList.remove('is-active', 'is-done', 'is-error');
+        badge.textContent = String(index + 1);
+      });
+    }
+
+    function setStepState(id, state) {
+      const step = document.getElementById(id);
+      const badge = step.querySelector('.badge');
+      step.classList.remove('is-active', 'is-done', 'is-error');
+
+      if (state === 'active') {
+        step.classList.add('is-active');
+      }
+
+      if (state === 'done') {
+        step.classList.add('is-done');
+        badge.textContent = '✓';
+      }
+
+      if (state === 'error') {
+        step.classList.add('is-error');
+        badge.textContent = '!';
+      }
+    }
+
+    function markStepError(id) {
+      setStepState(id, 'error');
+    }
+
+    function setStatus(message, type = 'info') {
+      statusBox.className = `status ${type}`;
+      statusBox.innerHTML = message;
+    }
+
+    function clearDownloads() {
+      currentUrls.forEach(url => URL.revokeObjectURL(url));
+      currentUrls = [];
+      downloadXlsx.classList.add('disabled');
+      downloadCsv.classList.add('disabled');
+      downloadXlsx.disabled = true;
+      downloadCsv.disabled = true;
+    }
+
+    function enableDownloadButtons() {
+      downloadXlsx.classList.remove('disabled');
+      downloadCsv.classList.remove('disabled');
+      downloadXlsx.disabled = false;
+      downloadCsv.disabled = false;
+    }
+
+    function showModal(title, html) {
+      document.getElementById('modalTitle').textContent = title;
+      modalBody.innerHTML = html;
+      modalBackdrop.style.display = 'flex';
+    }
+
+    function closeModal() {
+      modalBackdrop.style.display = 'none';
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalBackdrop) closeModal();
+    });
+
+    function resetAll() {
+      selectedFile = null;
+      isProcessing = false;
+      resultReady = false;
+      completedDownloads = 0;
+      outputRows = [];
+      outputHeaders = [];
+      fileInput.value = '';
+      processBtn.disabled = true;
+      resetBtn.disabled = true;
+      clearDownloads();
+      summary.style.display = 'none';
+      summaryBody.innerHTML = '';
+      rowControl.style.display = 'none';
+      rowControlBody.innerHTML = '';
+      statusBox.style.display = 'none';
+      resetSteps();
+    }
+
+    resetBtn.addEventListener('click', resetAll);
+
+    function handleFile(file) {
+      if (isProcessing) return;
+      resultReady = false;
+      completedDownloads = 0;
+      resetSteps();
+      clearDownloads();
+      summary.style.display = 'none';
+      summaryBody.innerHTML = '';
+      rowControl.style.display = 'none';
+      rowControlBody.innerHTML = '';
+      outputRows = [];
+      outputHeaders = [];
+
+      if (!file) return;
+      const lowerName = file.name.toLowerCase();
+      if (!lowerName.endsWith('.xlsx') && !lowerName.endsWith('.xls')) {
+        selectedFile = null;
+        processBtn.disabled = true;
+        resetBtn.disabled = false;
+        showModal('Formato no admitido', '<p>El archivo debe ser Excel con extensión <strong>.xlsx</strong> o <strong>.xls</strong>.</p>');
+        setStatus('Formato no admitido. Seleccioná un archivo .xlsx o .xls.', 'err');
+        return;
+      }
+
+      selectedFile = file;
+      processBtn.disabled = false;
+      resetBtn.disabled = false;
+      setStatus(`Archivo seleccionado: <strong>${escapeHtml(file.name)}</strong>`, 'info');
+    }
+
+    fileInput.addEventListener('change', (event) => handleFile(event.target.files[0]));
+
+    dropzone.addEventListener('click', (event) => {
+      event.preventDefault();
+      fileInput.click();
+    });
+
+    dropzone.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+      const file = event.dataTransfer.files[0];
+      handleFile(file);
+    });
+
+    function pause(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function waitForPaint() {
+      return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    async function showStepActive(id, delayMs = 950) {
+      setStepState(id, 'active');
+      await waitForPaint();
+      await pause(delayMs);
+    }
+
+    async function showStepDone(id, delayMs = 900) {
+      setStepState(id, 'done');
+      await waitForPaint();
+      await pause(delayMs);
+    }
+
+    processBtn.addEventListener('click', async () => {
+      if (!selectedFile || isProcessing) return;
+
+      isProcessing = true;
+      resultReady = false;
+      completedDownloads = 0;
+      processBtn.disabled = true;
+      resetSteps();
+      setStatus('Preparando proceso...', 'info');
+      clearDownloads();
+      summary.style.display = 'none';
+      summaryBody.innerHTML = '';
+      rowControl.style.display = 'none';
+      rowControlBody.innerHTML = '';
+      outputRows = [];
+      outputHeaders = [];
+
+      try {
+        await showStepActive('stepRead');
+        setStatus('Leyendo hojas del archivo Excel...', 'info');
+        await waitForPaint();
+        const workbook = await readWorkbook(selectedFile);
+        await showStepDone('stepRead');
+
+        await showStepActive('stepValidate');
+        setStatus('Validando columnas y encabezados hoja por hoja...', 'info');
+        await waitForPaint();
+        const validation = await validateWorkbook(workbook);
+        renderSummary(validation.sheetSummaries);
+        await waitForPaint();
+
+        if (!validation.ok) {
+          markStepError('stepValidate');
+          setStatus('El archivo no pudo procesarse porque hay diferencias entre hojas.', 'err');
+          showModal('El archivo tiene errores', buildErrorHtml(validation.errors));
+          return;
+        }
+
+        await showStepDone('stepValidate');
+
+        await showStepActive('stepMerge');
+        setStatus('Unificando hojas. Este paso puede tardar unos segundos si el archivo tiene muchas filas...', 'info');
+        await waitForPaint();
+        const result = await mergeValidatedSheets(validation);
+        outputHeaders = result.headers;
+        outputRows = result.rows;
+        renderRowControl(result);
+        await waitForPaint();
+        await showStepDone('stepMerge');
+
+        await showStepActive('stepDownload');
+        setStatus('Habilitando descargas...', 'info');
+        await waitForPaint();
+        enableDownloadButtons();
+        resultReady = true;
+        await showStepDone('stepDownload');
+
+        setStatus(`Listo. Se unificaron <strong>${result.validSheetCount}</strong> hojas y <strong>${formatNumber(result.dataRowCount)}</strong> filas de datos. Elegí si querés descargar XLSX o CSV.`, 'ok');
+      } catch (error) {
+        console.error(error);
+        const activeStep = stepIds.find(id => document.getElementById(id).classList.contains('is-active')) || 'stepRead';
+        markStepError(activeStep);
+        setStatus('No se pudo leer el archivo. Verificá que sea un Excel válido y que no esté protegido o dañado.', 'err');
+        showModal('No se pudo procesar el archivo', '<p>Verificá que el archivo sea Excel válido, que tenga encabezados en la primera fila y que no esté protegido o dañado.</p>');
+      } finally {
+        isProcessing = false;
+        processBtn.disabled = resultReady ? true : false;
+      }
+    });
+
+    function readWorkbook(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            resolve(workbook);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    async function validateWorkbook(workbook) {
+      const errors = [];
+      const sheetSummaries = [];
+      const sheets = [];
+      let referenceHeaders = null;
+      let referenceSheetName = '';
+
+      for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex++) {
+        const sheetName = workbook.SheetNames[sheetIndex];
+        setStatus(`Validando hoja ${sheetIndex + 1} de ${workbook.SheetNames.length}: <strong>${escapeHtml(sheetName)}</strong>...`, 'info');
+        await waitForPaint();
+
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+        const nonEmptyRows = rows.filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
+
+        if (nonEmptyRows.length === 0 && ignoreEmptySheets.checked) {
+          sheetSummaries.push({ sheetName, columnCount: 0, dataRows: 0, status: 'Ignorada: vacía' });
+          await pause(40);
+          continue;
+        }
+
+        if (nonEmptyRows.length === 0) {
+          errors.push(`La hoja "${sheetName}" está vacía.`);
+          sheetSummaries.push({ sheetName, columnCount: 0, dataRows: 0, status: 'Error: vacía' });
+          await pause(40);
+          continue;
+        }
+
+        // Algunos archivos .xls traen columnas vacías al final por formato interno/estilos.
+        // Para validar correctamente, se eliminan solo los encabezados vacíos finales.
+        // No se eliminan columnas vacías intermedias, porque ahí sí podría haber un problema real de estructura.
+        const headerRow = trimTrailingEmptyCells(nonEmptyRows[0]);
+        const headers = normalizeHeaders(headerRow);
+        const originalHeaders = headerRow.map(value => String(value ?? ''));
+        const dataRows = nonEmptyRows.slice(1).map(row => row.slice(0, headers.length));
+        const duplicateHeaders = findDuplicates(headers);
+        const blankHeaderIndexes = headers
+          .map((header, index) => ({ header, index }))
+          .filter(item => item.header === '')
+          .map(item => item.index + 1);
+
+        if (blankHeaderIndexes.length > 0) {
+          errors.push(`La hoja "${sheetName}" tiene encabezados vacíos en las posiciones: ${blankHeaderIndexes.join(', ')}.`);
+        }
+
+        if (duplicateHeaders.length > 0) {
+          errors.push(`La hoja "${sheetName}" tiene encabezados repetidos: ${duplicateHeaders.join(', ')}.`);
+        }
+
+        if (!referenceHeaders && blankHeaderIndexes.length === 0 && duplicateHeaders.length === 0) {
+          referenceHeaders = headers;
+          referenceSheetName = sheetName;
+        }
+
+        let status = 'OK';
+        if (referenceHeaders) {
+          if (headers.length !== referenceHeaders.length) {
+            status = 'Error: distinta cantidad de columnas';
+            errors.push(`La hoja "${sheetName}" tiene ${headers.length} columnas y la hoja de referencia "${referenceSheetName}" tiene ${referenceHeaders.length}.`);
+          } else {
+            const differentNames = [];
+            headers.forEach((header, index) => {
+              if (header !== referenceHeaders[index]) {
+                differentNames.push(`posición ${index + 1}: "${originalHeaders[index] ?? ''}" debería ser "${referenceHeaders[index]}"`);
+              }
+            });
+            if (differentNames.length > 0) {
+              status = 'Error: nombres de columnas distintos';
+              errors.push(`La hoja "${sheetName}" tiene nombres de columnas distintos respecto de "${referenceSheetName}": ${differentNames.join('; ')}.`);
+            }
+          }
+        }
+
+        if (blankHeaderIndexes.length > 0 || duplicateHeaders.length > 0) {
+          status = 'Error: encabezados inválidos';
+        }
+
+        sheetSummaries.push({ sheetName, columnCount: headers.length, dataRows: dataRows.length, status });
+        sheets.push({ sheetName, headers, originalHeaders, dataRows });
+        await pause(40);
+      }
+
+      if (!referenceHeaders) {
+        errors.push('No se encontró ninguna hoja válida con encabezados para usar como referencia.');
+      }
+
+      if (errors.length > 0) {
+        return { ok: false, errors, sheetSummaries, sheets: [], headers: [], validSheetCount: 0, dataRowCount: 0, originalDataRowCount: 0, originalColumnCount: 0, unifiedColumnCount: 0 };
+      }
+
+      return {
+        ok: true,
+        errors: [],
+        sheetSummaries,
+        sheets,
+        headers: ['Hoja', ...referenceHeaders],
+        referenceHeaders,
+        validSheetCount: sheets.length,
+        originalDataRowCount: sheets.reduce((total, sheetInfo) => total + sheetInfo.dataRows.length, 0),
+        originalColumnCount: referenceHeaders.length,
+        unifiedColumnCount: referenceHeaders.length + 1
+      };
+    }
+
+    async function mergeValidatedSheets(validation) {
+      const mergedRows = [];
+      let processedRows = 0;
+      const totalRows = validation.originalDataRowCount;
+
+      for (const sheetInfo of validation.sheets) {
+        setStatus(`Unificando hoja <strong>${escapeHtml(sheetInfo.sheetName)}</strong>... ${formatNumber(processedRows)} de ${formatNumber(totalRows)} filas`, 'info');
+        await waitForPaint();
+
+        for (let rowIndex = 0; rowIndex < sheetInfo.dataRows.length; rowIndex++) {
+          const row = sheetInfo.dataRows[rowIndex];
+          const normalizedRow = validation.referenceHeaders.map((_, index) => row[index] ?? '');
+          mergedRows.push([sheetInfo.sheetName, ...normalizedRow]);
+          processedRows++;
+
+          if (processedRows % 5000 === 0) {
+            setStatus(`Unificando datos... ${formatNumber(processedRows)} de ${formatNumber(totalRows)} filas`, 'info');
+            await waitForPaint();
+          }
+        }
+      }
+
+      return {
+        ok: true,
+        errors: [],
+        sheetSummaries: validation.sheetSummaries,
+        headers: validation.headers,
+        rows: mergedRows,
+        validSheetCount: validation.validSheetCount,
+        dataRowCount: mergedRows.length,
+        originalDataRowCount: validation.originalDataRowCount,
+        originalColumnCount: validation.originalColumnCount,
+        unifiedColumnCount: validation.unifiedColumnCount
+      };
+    }
+
+    function trimTrailingEmptyCells(row) {
+      const cleanRow = [...row];
+      while (cleanRow.length > 0) {
+        const lastValue = cleanRow[cleanRow.length - 1];
+        if (String(lastValue ?? '').trim() !== '') break;
+        cleanRow.pop();
+      }
+      return cleanRow;
+    }
+
+    function normalizeHeaders(headerRow) {
+      let headers = headerRow.map(value => String(value ?? ''));
+      if (trimHeaders.checked) {
+        headers = headers.map(value => value.trim());
+      }
+      return headers;
+    }
+
+    function findDuplicates(values) {
+      const counts = new Map();
+      values.forEach(value => counts.set(value, (counts.get(value) || 0) + 1));
+      return [...counts.entries()].filter(([value, count]) => value !== '' && count > 1).map(([value]) => value);
+    }
+
+    function renderRowControl(result) {
+      const originalRows = result.originalDataRowCount;
+      const unifiedRows = result.rows.length;
+      const rowDiff = unifiedRows - originalRows;
+      const originalColumns = result.originalColumnCount;
+      const unifiedColumns = result.unifiedColumnCount;
+      const columnDiff = unifiedColumns - originalColumns;
+      const rowsOk = rowDiff === 0;
+      const columnsOk = columnDiff === 1;
+      const overallOk = rowsOk && columnsOk;
+
+      rowControlPill.textContent = overallOk ? '✓ Control OK' : '! Revisar control';
+      rowControlPill.classList.toggle('error', !overallOk);
+
+      rowControlBody.innerHTML = `
+        <tr>
+          <td>Filas de datos <span class="muted">sin contar encabezados</span></td>
+          <td>${formatNumber(originalRows)}</td>
+          <td>${formatNumber(unifiedRows)}</td>
+          <td>${formatSignedNumber(rowDiff)}</td>
+          <td>${rowsOk ? 'OK' : 'Revisar'}</td>
+        </tr>
+        <tr>
+          <td>Columnas</td>
+          <td>${formatNumber(originalColumns)}</td>
+          <td>${formatNumber(unifiedColumns)}</td>
+          <td>${formatSignedNumber(columnDiff)}</td>
+          <td>${columnsOk ? 'OK: se agregó columna Hoja' : 'Revisar'}</td>
+        </tr>
+      `;
+      rowControl.style.display = 'block';
+    }
+
+    function renderSummary(sheetSummaries) {
+      summaryBody.innerHTML = sheetSummaries.map(item => `
+        <tr>
+          <td>${escapeHtml(item.sheetName)}</td>
+          <td>${item.columnCount}</td>
+          <td>${item.dataRows}</td>
+          <td>${escapeHtml(item.status)}</td>
+        </tr>
+      `).join('');
+      summary.style.display = 'block';
+    }
+
+    function buildErrorHtml(errors) {
+      const list = errors.map(error => `<li>${escapeHtml(error)}</li>`).join('');
+      return `
+        <p>El archivo no se unificó porque las hojas no cumplen la misma estructura.</p>
+        <p>Corregí los puntos siguientes y volvé a cargar el archivo:</p>
+        <ul>${list}</ul>
+      `;
+    }
+
+    async function handleDownload(format) {
+      if (!outputHeaders.length || !outputRows.length || !selectedFile || downloadInProgress) return;
+      if (downloadXlsx.classList.contains('disabled') || downloadCsv.classList.contains('disabled')) return;
+
+      downloadInProgress = true;
+      const previousStatus = statusBox.innerHTML;
+      try {
+        const label = format === 'xlsx' ? 'XLSX' : 'CSV';
+        setStatus(`Generando archivo ${label}. Esperá unos segundos...`, 'info');
+        await waitForPaint();
+        await pause(80);
+        generateAndDownloadFile(format, selectedFile.name, outputHeaders, outputRows);
+        completedDownloads += 1;
+        setStatus(previousStatus || 'Archivo generado.', 'ok');
+      } catch (error) {
+        console.error(error);
+        setStatus('No se pudo generar la descarga. Probá descargar en CSV si el XLSX es muy grande.', 'err');
+        showModal('No se pudo generar la descarga', '<p>El navegador no pudo crear el archivo de salida. Probá descargar en CSV o usá un archivo de menor tamaño.</p>');
+      } finally {
+        downloadInProgress = false;
+      }
+    }
+
+    downloadXlsx.addEventListener('click', () => {
+      handleDownload('xlsx');
+    });
+
+    downloadCsv.addEventListener('click', () => {
+      handleDownload('csv');
+    });
+
+    function generateAndDownloadFile(format, originalFileName, headers, rows) {
+      const cleanBaseName = originalFileName.replace(/\.(xlsx|xls)$/i, '').replace(/[^a-zA-Z0-9_-]+/g, '_');
+      const outputName = `${cleanBaseName}_unificado`;
+      if (format === 'csv') {
+        const csvBlob = buildCsvBlob(headers, rows);
+        triggerBrowserDownload(csvBlob, `${outputName}.csv`);
+        return;
+      }
+
+      const aoa = [headers, ...rows];
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      worksheet['!cols'] = calculateColumnWidths(aoa);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Unificado');
+      const xlsxArray = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true });
+      const xlsxBlob = new Blob([xlsxArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      triggerBrowserDownload(xlsxBlob, `${outputName}.xlsx`);
+    }
+
+
+    function buildCsvBlob(headers, rows) {
+      const chunks = ['\ufeff'];
+      chunks.push(headers.map(csvEscape).join(';'));
+      chunks.push('\r\n');
+
+      const chunkSize = 5000;
+      for (let start = 0; start < rows.length; start += chunkSize) {
+        const end = Math.min(start + chunkSize, rows.length);
+        let text = '';
+        for (let index = start; index < end; index += 1) {
+          text += rows[index].map(csvEscape).join(';') + '\r\n';
+        }
+        chunks.push(text);
+      }
+
+      return new Blob(chunks, { type: 'text/csv;charset=utf-8;' });
+    }
+
+    function csvEscape(value) {
+      const text = String(value ?? '');
+      const normalized = text.replace(/\r\n|\r|\n/g, ' ');
+      if (normalized.includes(';') || normalized.includes('"') || normalized.includes('\n')) {
+        return `"${normalized.replace(/"/g, '""')}"`;
+      }
+      return normalized;
+    }
+
+    function triggerBrowserDownload(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      currentUrls.push(url);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        currentUrls = currentUrls.filter(item => item !== url);
+      }, 30000);
+    }
+
+    function calculateColumnWidths(aoa) {
+      if (!aoa.length) return [];
+
+      const columnCount = Math.max(...aoa.map(row => row.length));
+      const widths = [];
+
+      for (let colIndex = 0; colIndex < columnCount; colIndex++) {
+        let maxLength = 10;
+
+        aoa.forEach(row => {
+          const cellValue = row[colIndex] ?? '';
+          const textValue = String(cellValue).replace(/[\r\n]+/g, ' ');
+          maxLength = Math.max(maxLength, textValue.length);
+        });
+
+        widths.push({ wch: Math.min(Math.max(maxLength + 2, 10), 60) });
+      }
+
+      return widths;
+    }
+
+
+    window.addEventListener('beforeunload', (event) => {
+      if (resultReady && completedDownloads === 0 && !downloadInProgress) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
+
+    resetSteps();
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('es-AR').format(Number(value || 0));
+    }
+
+    function formatSignedNumber(value) {
+      const number = Number(value || 0);
+      if (number > 0) return `+${formatNumber(number)}`;
+      return formatNumber(number);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
