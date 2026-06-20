@@ -23,6 +23,11 @@ La única dependencia externa es **SheetJS (xlsx 0.18.5)** cargada por CDN:
 ```
 Expone el global `XLSX`, usado para leer (`XLSX.read`) y escribir (`XLSX.utils`, `XLSX.write`) libros.
 
+El único otro archivo del proyecto es **[favicon.svg](favicon.svg)** (ícono verde de Excel), referenciado desde `index.html` con una URL versionada para romper la caché del navegador:
+```html
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+```
+
 ## Flujo de datos
 
 ```
@@ -53,7 +58,7 @@ Las opciones del usuario se leen de los checkboxes `#ignoreEmptySheets` y `#trim
 
 ## Convenciones
 
-- **Un solo archivo**: toda nueva lógica va dentro de `index.html`. No introducir build tools, bundlers ni `package.json` salvo pedido explícito.
+- **Un solo archivo**: toda la lógica de la app va dentro de `index.html` (el único otro asset es `favicon.svg`). No introducir build tools, bundlers ni `package.json` salvo pedido explícito.
 - **JS vanilla**: sin frameworks ni librerías nuevas. Si hace falta algo de Excel, ya está `XLSX` disponible.
 - **IDs como contrato**: el JS referencia elementos por `id` (ver lista arriba). Al editar el markup, mantené los `id` o actualizá ambos lados.
 - **Estilos**: usar las variables CSS de `:root` existentes en vez de colores hardcodeados.
@@ -65,6 +70,10 @@ No hay comandos de build ni test. Para probar:
 
 - Abrir `index.html` directo en el navegador, **o**
 - VS Code + extensión **Live Server** (configurada en [.vscode/settings.json](.vscode/settings.json), puerto `5501`): click derecho sobre `index.html` → "Open with Live Server".
+
+## Deploy
+
+Desplegado en **Vercel** (`https://unificador-excel-two.vercel.app`), redeploy automático al hacer push a `main`. Al cambiar el favicon, actualizá `favicon.svg` **y** bumpeá el `?v=` en `index.html` para que el navegador lo vuelva a bajar (la caché de favicons es muy persistente y no se limpia con un refresh normal).
 
 ## Git
 
